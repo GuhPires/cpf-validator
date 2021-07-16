@@ -1,0 +1,9 @@
+# Prouction
+dist/
+prod/
+
+# Sensitive
+*.env
+
+# Misc
+DS_Store
