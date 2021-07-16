@@ -10,6 +10,50 @@
  *
  **/
 
+const prv = {
+	_validate: Symbol('_validate'),
+	_sanitize: Symbol('_sanitize'),
+};
+
+class Validator {
+	[prv._validate]() {
+		console.log('Called PRIVATE!');
+	}
+
+	[prv._sanitize](raw) {
+		console.log('Called SANITIZE!', raw);
+
+		// TODO: create `regexp` to remove all but digits
+		return raw;
+	}
+
+	CPF(digits) {
+		this[prv._validate]();
+	}
+
+	CNPJ(digits) {
+		this[prv._validate]();
+	}
+
+	validate(digits, type) {
+		if (arguments.length === 1)
+			// TODO: check if digits are CPF or CNPJ
+			// FIXME: change `type` accordingly
+			type = 'CPF';
+
+		const sanitized = this[prv._sanitize](digits);
+		this[type.toUpperCase()](sanitized);
+	}
+}
+
+module.exports = new Validator();
+
+const validate = new Validator();
+
+console.log('CPF:', validate.CPF());
+console.log('CNPJ:', validate.CNPJ());
+console.log('Validate:', validate.validate());
+
 const Validate = {
 	/**
 	 *  validateCPF `function`
