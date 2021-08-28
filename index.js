@@ -1,7 +1,7 @@
 /**
  *          -- Documents Validator --
  *
- * @description  Set of helper functions that verify the valiity
+ * @description  Set of helper functions that verify the validity
  *               of a given CPF or CNPJ
  *
  * @author       GuhPires<gustavo.goncalvespires@gmail.com>
@@ -10,196 +10,149 @@
  *
  **/
 
+// TODO: add description to docs instead
+/**
+ *  validateCPF `function`
+ *
+ * @description   Verify if the provided CPF is valid
+ *
+ * @param         {string} digits - Provided CPF digits
+ *
+ *                A B C . D E F . G H I - J K
+ *                | | |   | | |   | | |   | |-> 2nd Checking Digit
+ *                | | |   | | |   | | |   |-> 1st Cheking Digit
+ *                |--- INI. DIGITS ---|
+ *
+ *                General Rules:
+ *                - Initial J: (Ax10 + Bx9 + Cx8 + Dx7 + Ex6 + Fx5 + Gx4 + Hx3 + Ix2) % 11 = J (1st Checking Digit);
+ *                - Initial K: (Ax11 + Bx10 + Cx9 + Dx8 + Ex7 + Fx6 + Gx5 + Hx4 + Ix3 + Jx2) % 11 = K (2nd Checking Digit);
+ *                - Final J: J == 0 || J == 1 ? J = 0 : 11 - Initial J;
+ *                - Final K: K == 0 || K == 1 ? K = 0 : 11 - Initial K;
+ *
+ **/
+/**
+ *
+ * validateCNPJ `function`
+ * @description   Verify if the provided CNPJ is valid
+ *
+ * @param         {string} digits - Provided CNPJ digits
+ *
+ *                A B . C D E . F G H / I J K L - M N
+ *                | |   | | |   | | |   | | | |   | |-> 2nd Checking Digit
+ *                | |   | | |   | | |   | | | |   |-> 1st Cheking Digit
+ *                |------- INI. DIGITS -------|
+ *
+ *                General Rules:
+ *                - Initial M: (Ax5 + Bx4 + Cx3 + Dx2 + Ex9 + Fx8 + Gx7 + Hx6 + Ix5 + Jx4 + Kx3 + Lx2) % 11 = M (1st Checking Digit);
+ *                - Initial N: (Ax6 + Bx5 + Cx4 + Dx3 + Ex2 + Fx9 + Gx8 + Hx7 + Ix6 + Jx5 + Kx4 + Lx3 + Mx2) % 11 = N (2nd Checking Digit);
+ *                - Final M: M < 2 ? M = 0 : 11 - Initial M;
+ *                - Final N: N < 2 ? N = 0 : 11 - Initial N;
+ *
+ **/
+
 const prv = {
 	_validate: Symbol('_validate'),
-	_sanitize: Symbol('_sanitize'),
+	_verify: Symbol('_verify'),
+	_checker: Symbol('_checker'),
+	CPF: Symbol('CPF'),
+	CNPJ: Symbol('CNPJ'),
 };
 
+const invalid = [
+	'000.000.000-00',
+	'111.111.111-11',
+	'222.222.222-22',
+	'333.333.333-33',
+	'444.444.444-44',
+	'555.555.555-55',
+	'666.666.666-66',
+	'777.777.777-77',
+	'888.888.888-88',
+	'999.999.999-99',
+	'00.000.000/0000-00',
+];
+
 class Validator {
-	[prv._validate]() {
-		console.log('Called PRIVATE!');
+	[prv._validate](digits) {
+		const dig = '' + digits;
+		const len = dig.length;
+
+		if (len !== 14 && len !== 18) return false;
+
+		const rgx = /^(?<initial>\d{2,3}\.\d{3}\.\d{3}(\/\d{4})?)-(?<final>\d{2})$/;
+		const valid = dig.match(rgx);
+
+		if (!valid || invalid.includes(dig)) return false;
+
+		const { initial, final } = valid.groups;
+		const type = len === 14 ? prv.CPF : prv.CNPJ;
+
+		return { initial: initial.replace(/\D/g, ''), final, type };
 	}
 
-	[prv._sanitize](raw) {
-		console.log('Called SANITIZE!', raw);
+	[prv._verify](numsArr, check) {
+		let multiplier = numsArr.length + 1;
 
-		// TODO: create `regexp` to remove all but digits
-		return raw;
+		if (numsArr.length > 11) multiplier -= 8;
+
+		const reducer = (prev, curr) => {
+			const num = +curr;
+			const result = prev + num * multiplier;
+
+			multiplier--;
+
+			if (multiplier === 1) multiplier = 9;
+
+			return result;
+		};
+
+		const sum = numsArr.reduce(reducer, 0);
+		const remainder = (sum * 10) % 11;
+		const value = remainder === 10 ? 0 : remainder;
+
+		return value === +check;
+	}
+
+	[prv._checker](parsed) {
+		const { initial, final } = parsed;
+
+		const nums = Array.from(initial);
+		const check = Array.from(final);
+
+		for (let i = 0; i < 2; i++) {
+			if (i > 0) nums.push(check[i - 1]);
+
+			const verified = this[prv._verify](nums, check[i]);
+			if (!verified) return false;
+		}
+
+		return true;
 	}
 
 	CPF(digits) {
-		this[prv._validate]();
+		const valid = this[prv._validate](digits);
+
+		if (!valid || valid.type !== prv.CPF) return false;
+
+		return this[prv._checker](valid);
 	}
 
 	CNPJ(digits) {
-		this[prv._validate]();
+		const valid = this[prv._validate](digits);
+
+		if (!valid || valid.type !== prv.CNPJ) return false;
+
+		return this[prv._checker](valid);
 	}
 
+	// TODO: finsih this function
 	validate(digits, type) {
-		if (arguments.length === 1)
-			// TODO: check if digits are CPF or CNPJ
-			// FIXME: change `type` accordingly
-			type = 'CPF';
+		if (!type) type = 'CPF';
 
-		const sanitized = this[prv._sanitize](digits);
-		this[type.toUpperCase()](sanitized);
+		// TODO: check for invalid type param
+
+		return this[type.toUpperCase()](digits);
 	}
 }
 
 module.exports = new Validator();
-
-const validate = new Validator();
-
-console.log('CPF:', validate.CPF());
-console.log('CNPJ:', validate.CNPJ());
-console.log('Validate:', validate.validate());
-
-const Validate = {
-	/**
-	 *  validateCPF `function`
-	 *
-	 * @description   Verify if the provided CPF is valid
-	 *
-	 * @param         {string} digits - Provided CPF digits
-	 *
-	 *                A B C . D E F . G H I - J K
-	 *                | | |   | | |   | | |   | |-> 2nd Checking Digit
-	 *                | | |   | | |   | | |   |-> 1st Cheking Digit
-	 *                |--- INI. DIGITS ---|
-	 *
-	 *                General Rules:
-	 *                - Initial J: (Ax10 + Bx9 + Cx8 + Dx7 + Ex6 + Fx5 + Gx4 + Hx3 + Ix2) % 11 = J (1st Checking Digit);
-	 *                - Initial K: (Ax11 + Bx10 + Cx9 + Dx8 + Ex7 + Fx6 + Gx5 + Hx4 + Ix3 + Jx2) % 11 = K (2nd Checking Digit);
-	 *                - Final J: J == 0 || J == 1 ? J = 0 : 11 - Initial J;
-	 *                - Final K: K == 0 || K == 1 ? K = 0 : 11 - Initial K;
-	 *
-	 */
-	validateCPF: (digits) => {
-		if (
-			digits.length != 11 ||
-			digits == '1'.repeat(11) ||
-			digits == '2'.repeat(11) ||
-			digits == '3'.repeat(11) ||
-			digits == '4'.repeat(11) ||
-			digits == '5'.repeat(11) ||
-			digits == '6'.repeat(11) ||
-			digits == '7'.repeat(11) ||
-			digits == '8'.repeat(11) ||
-			digits == '9'.repeat(11)
-		) {
-			return false;
-		}
-
-		const iniDigits = digits.split('');
-		iniDigits.splice(-2);
-
-		const verify = (iniArr) => {
-			let num = iniArr.length + 1;
-			const result = iniArr.reduce(
-				(acc, currValue, idx) =>
-					parseInt(acc) + parseInt(currValue) * (num - idx),
-				0
-			);
-
-			return result % 11;
-		};
-
-		const initJ = verify(iniDigits);
-		let J = initJ > 1 ? 11 - initJ : 0;
-		iniDigits.push(J);
-		const initK = verify(iniDigits);
-		let K = initK > 1 ? 11 - initK : 0;
-
-		if (
-			parseInt(digits.charAt(digits.length - 1)) === K &&
-			parseInt(digits.charAt(digits.length - 2)) === J
-		) {
-			return true;
-		}
-		return false;
-	},
-
-	/**
-	 *
-	 * validateCNPJ `function`
-	 * @description   Verify if the provided CNPJ is valid
-	 *
-	 * @param         {string} digits - Provided CNPJ digits
-	 *
-	 *                A B . C D E . F G H / I J K L - M N
-	 *                | |   | | |   | | |   | | | |   | |-> 2nd Checking Digit
-	 *                | |   | | |   | | |   | | | |   |-> 1st Cheking Digit
-	 *                |------- INI. DIGITS -------|
-	 *
-	 *                General Rules:
-	 *                - Initial M: (Ax5 + Bx4 + Cx3 + Dx2 + Ex9 + Fx8 + Gx7 + Hx6 + Ix5 + Jx4 + Kx3 + Lx2) % 11 = M (1st Checking Digit);
-	 *                - Initial N: (Ax6 + Bx5 + Cx4 + Dx3 + Ex2 + Fx9 + Gx8 + Hx7 + Ix6 + Jx5 + Kx4 + Lx3 + Mx2) % 11 = N (2nd Checking Digit);
-	 *                - Final M: M < 2 ? M = 0 : 11 - Initial M;
-	 *                - Final N: N < 2 ? N = 0 : 11 - Initial N;
-	 *
-	 **/
-	validateCNPJ: (digits) => {
-		if (
-			digits.length != 14 ||
-			digits == '1'.repeat(14) ||
-			digits == '2'.repeat(14) ||
-			digits == '3'.repeat(14) ||
-			digits == '4'.repeat(14) ||
-			digits == '5'.repeat(14) ||
-			digits == '6'.repeat(14) ||
-			digits == '7'.repeat(14) ||
-			digits == '8'.repeat(14) ||
-			digits == '9'.repeat(14)
-		) {
-			return false;
-		}
-
-		const iniDigits = digits.split('');
-		iniDigits.splice(-2);
-
-		const verify = (iniArr) => {
-			let multiplier = iniArr.length == 12 ? 6 : 7;
-			const result = iniArr.reduce((acc, currValue) => {
-				multiplier--;
-				if (multiplier == 1) multiplier = 9;
-				return parseInt(acc) + parseInt(currValue) * multiplier;
-			}, 0);
-
-			return result % 11;
-		};
-
-		const initM = verify(iniDigits);
-		let M = initM >= 2 ? 11 - initM : 0;
-		iniDigits.push(M);
-		const initN = verify(iniDigits);
-		let N = initN >= 2 ? 11 - initN : 0;
-
-		if (
-			parseInt(digits.charAt(digits.length - 1)) === N &&
-			parseInt(digits.charAt(digits.length - 2)) === M
-		) {
-			return true;
-		}
-		return false;
-	},
-};
-
-// CPF TESTING:
-console.log('Valid CPF: ', Validate.validateCPF('54156049019')); // Valid: true;
-console.log('Valid CPF: ', Validate.validateCPF('18440985088')); // Valid: true;
-console.log('Valid CPF: ', Validate.validateCPF('76746127087')); // Valid: true;
-console.log('Valid CPF: ', Validate.validateCPF('89027830062')); // Valid: false;
-console.log('Valid CPF: ', Validate.validateCPF('08988487031')); // Valid: false;
-console.log('Valid CPF: ', Validate.validateCPF('64574203032')); // Valid: false;
-console.log('Valid CPF: ', Validate.validateCPF('11111111111')); // Valid: false;
-console.log('Valid CPF: ', Validate.validateCPF('0000000000')); // Valid: false;
-
-// CNPJ TESTING:
-console.log('Valid CNPJ: ', Validate.validateCNPJ('32609453000106')); // Valid: true;
-console.log('Valid CNPJ: ', Validate.validateCNPJ('90880788000160')); // Valid: true;
-console.log('Valid CNPJ: ', Validate.validateCNPJ('56878092000161')); // Valid: true;
-console.log('Valid CNPJ: ', Validate.validateCNPJ('47102248001127')); // Valid: false;
-console.log('Valid CNPJ: ', Validate.validateCNPJ('74495872000102')); // Valid: false;
-console.log('Valid CNPJ: ', Validate.validateCNPJ('91840023000163')); // Valid: false;
-console.log('Valid CNPJ: ', Validate.validateCNPJ('11111111111111')); // Valid: false;
-console.log('Valid CNPJ: ', Validate.validateCNPJ('0000000000000')); // Valid: false;
