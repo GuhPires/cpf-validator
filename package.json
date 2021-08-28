@@ -1,0 +1,19 @@
+{
+	"name": "documents-validator",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"start": "node ."
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/GuhPires/documents-validator.git"
+	},
+	"author": "Gustavo Pires <gustavo.goncalvespires@gmail.com>",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/GuhPires/documents-validator/issues"
+	},
+	"homepage": "https://github.com/GuhPires/documents-validator#readme"
+}
