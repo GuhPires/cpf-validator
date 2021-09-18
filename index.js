@@ -1,7 +1,7 @@
 /**
  *          -- Documents Validator --
  *
- * @description  Set of helper functions that verify the validity
+ * @description  Set of helper functions that verifies the numbers
  *               of a given CPF or CNPJ
  *
  * @author       GuhPires<gustavo.goncalvespires@gmail.com>
